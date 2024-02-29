@@ -49,7 +49,7 @@ con = sqlite3.connect(sqlite_file)
 ```
 
 ## Task 1 - BYU-Idaho baseball players
-_Write an SQL query to create a new dataframe about baseball players who attended BYU-Idaho. The new table should contain five columns: playerID, schoolID, salary, and the yearID/teamID associated with each salary. Order the table by salary (highest to lowest) and print out the table in your report._
+__Write an SQL query to create a new dataframe about baseball players who attended BYU-Idaho. The new table should contain five columns: playerID, schoolID, salary, and the yearID/teamID associated with each salary. Order the table by salary (highest to lowest) and print out the table in your report.__
 
 ```{python}
 #| label: Task 1
@@ -71,13 +71,13 @@ results = pd.read_sql_query(query,con)
 # show data
 results
 ```
-__3 people from BYU-Idaho played MLB. Troy Cate is of note, and appears to have had one at bat, so he likely had a minor league contract. Minor leaguers get paid a prorated amount of league minimum for the days they are active and on the roster, regardless of playing time, games appeared in, or number of games during the time they were on the roster. The prorated amount is somewhere between 1/180 and 1/190 of league minimum per day, depending on the length of the season.__
+_3 people from BYU-Idaho played MLB. Troy Cate is of note, and appears to have had one at bat, so he likely had a minor league contract. Minor leaguers get paid a prorated amount of league minimum for the days they are active and on the roster, regardless of playing time, games appeared in, or number of games during the time they were on the roster. The prorated amount is somewhere between 1/180 and 1/190 of league minimum per day, depending on the length of the season._
 
 
 ## Task 2 - Batting Average Queries
-_This three-part question requires you to calculate batting average (number of hits divided by the number of at-bats)_
+__This three-part question requires you to calculate batting average (number of hits divided by the number of at-bats)__
 
-_a. Write an SQL query that provides playerID, yearID, and batting average for players with at least 1 at bat that year. Sort the table from highest batting average to lowest, and then by playerid alphabetically. Show the top 5 results in your report._
+__a. Write an SQL query that provides playerID, yearID, and batting average for players with at least 1 at bat that year. Sort the table from highest batting average to lowest, and then by playerid alphabetically. Show the top 5 results in your report.__
 
 ```{python}
 #| label: Task 2a
@@ -105,9 +105,9 @@ results.head(5).style.format({
   ).hide(axis='index')
 
 ```
-__Unsurprisingly there have been many people that have had a single at bat and have a perfect 1.000 batting average. In fact, it has happened 480 times in this data set.__
+_Unsurprisingly there have been many people that have had a single at bat and have a perfect 1.000 batting average. In fact, it has happened 480 times in this data set._
 
-_b. Use the same query as above, but only include players with at least 10 at bats that year. Print the top 5 results._
+__b. Use the same query as above, but only include players with at least 10 at bats that year. Print the top 5 results.__
 
 ```{python}
 #| label: Task 2b
@@ -130,12 +130,12 @@ results.head(5).style.format({
   'Batting_Average':'{:.3f}'},
   ).hide(axis='index')
 ```
-__Increasing the minimum at bats to 10 quickly gets us away from perfect batting averages. It is not uncommon for a player to hit exceptionally well for a short period of time, but the law of averages tends to catch up to them, and they tend to revert closer to the mean. In this case, .643 has been the ceiling for 10 at-bats over a season.__
+_Increasing the minimum at bats to 10 quickly gets us away from perfect batting averages. It is not uncommon for a player to hit exceptionally well for a short period of time, but the law of averages tends to catch up to them, and they tend to revert closer to the mean. In this case, .643 has been the ceiling for 10 at-bats over a season._
 
-__Certainly, hitters have had higher batting averages over short periods. Last year, Julio Rodriguez had a 4 game stretch where he went 17 for 22 (.773) from Aug 16 to Aug 19. If a player was having this much success over a 10 at bat period, either they got hurt or they were a late season call up, because they would have likely been given more playing time due to the short term success.__
+_Certainly, hitters have had higher batting averages over short periods. Last year, Julio Rodriguez had a 4 game stretch where he went 17 for 22 (.773) from Aug 16 to Aug 19. If a player was having this much success over a 10 at bat period, either they got hurt or they were a late season call up, because they would have likely been given more playing time due to the short term success._
 
 
-_c. Now calculate the batting average for players over their entire careers (all years combined). Only include players with at least 100 at bats, and print the top 5 results._
+__c. Now calculate the batting average for players over their entire careers (all years combined). Only include players with at least 100 at bats, and print the top 5 results.__
 
 ```{python}
 #| label: Task 2c
@@ -161,14 +161,14 @@ results.head(5).style.format({
   'lifetime_average':'{:.3f}'},
   ).hide(axis='index')
 ```
-__Unsurprisingly, Ty Cobb, Roger Hornsby, and Shoeless Joe Jackson were in the top 5 all time batting average leaders. What is surprising is that the database includes the National Association from 1871 to 1875, which played by slightly different rules, until they National Association became the National League in 1876. 2 players from that National Association era were standouts with the bat: [Ross Barnes](https://en.wikipedia.org/wiki/Ross_Barnes) and [Levi Meyerle](https://en.wikipedia.org/wiki/Levi_Meyerle).__
+_Unsurprisingly, Ty Cobb, Roger Hornsby, and Shoeless Joe Jackson were in the top 5 all time batting average leaders. What is surprising is that the database includes the National Association from 1871 to 1875, which played by slightly different rules, until they National Association became the National League in 1876. 2 players from that National Association era were standouts with the bat: [Ross Barnes](https://en.wikipedia.org/wiki/Ross_Barnes) and [Levi Meyerle](https://en.wikipedia.org/wiki/Levi_Meyerle)._
 
-__Barnes was 3x NA/NL batting champion from 1872-1876, and led the league in hits, run, doubles, triples and stolen bases mutliple times. He leveraged a cast iron home plate and the ability to hit the ball off the plate and cause it to bounce foul. Rules during that period were that the ball was in play (today if the ball goes foul before it reaches 1st base or 3rd base, it is a foul ball). In 1877, the rules were changed and this was no longer a fair ball. In addition, he was quite ill in 1877, and played only 22 games. Whether the rule change or his illness was the larger impact, Barnes never hit .300 in his remaining career.__
+_Barnes was 3x NA/NL batting champion from 1872-1876, and led the league in hits, run, doubles, triples and stolen bases mutliple times. He leveraged a cast iron home plate and the ability to hit the ball off the plate and cause it to bounce foul. Rules during that period were that the ball was in play (today if the ball goes foul before it reaches 1st base or 3rd base, it is a foul ball). In 1877, the rules were changed and this was no longer a fair ball. In addition, he was quite ill in 1877, and played only 22 games. Whether the rule change or his illness was the larger impact, Barnes never hit .300 in his remaining career._
 
-__The reason that Ross Barnes did not win the NA batting championship in 1871 was Levi Meyerle hit an incredible .492 for the season, eclipsing Barnes .401 average. Meyerle was not great defensively, but he hit below .300 only once in his 7 year career.__
+_The reason that Ross Barnes did not win the NA batting championship in 1871 was Levi Meyerle hit an incredible .492 for the season, eclipsing Barnes .401 average. Meyerle was not great defensively, but he hit below .300 only once in his 7 year career._
 
 ## Task 3 - Compare two teams success vs cost
-_Pick any two baseball teams and compare them using a metric of your choice (average salary, home runs, number of wins, etc). Write an SQL query to get the data you need, then make a graph using Plotly Express to visualize the comparison. What do you learn?_
+__Pick any two baseball teams and compare them using a metric of your choice (average salary, home runs, number of wins, etc). Write an SQL query to get the data you need, then make a graph using Plotly Express to visualize the comparison. What do you learn?__
 
 
 ```{python}
@@ -237,6 +237,6 @@ dollars_per_win_chart.add_annotation(x=2012,y=1100000,
 dollars_per_win_chart.update_traces(line={'width':5})
 dollars_per_win_chart.show()
 ```
-__I chose the Seattle Mariners and the Los Angeles Dodgers. Generally speaking, minor to middle increases in payroll did not have a direct correlation with increased win totals. The only excecption to this is when the Dodgers doubled their payroll between 2012 and 2013, and this doubled payroll sustained 5 to 8 additional wins per yer. Since 2013, the Mariners have spent $0.8M to $1.2M less per win.__
+_I chose the Seattle Mariners and the Los Angeles Dodgers. Generally speaking, minor to middle increases in payroll did not have a direct correlation with increased win totals. The only excecption to this is when the Dodgers doubled their payroll between 2012 and 2013, and this doubled payroll sustained 5 to 8 additional wins per yer. Since 2013, the Mariners have spent $0.8M to $1.2M less per win._
 
-__The obvious question is, why did the Dodgers change the amount they were spending in 2012. The Dodgers were purchased in 2012 and the new management had a completely different approach to payroll. They have continued the higher level of investment do this date. The increase has allowed the Dodgers to reach the playoffs in 11 straight seasons, and have won 50 playoff games during that time.__
+_The obvious question is, why did the Dodgers change the amount they were spending in 2012. The Dodgers were purchased in 2012 and the new management had a completely different approach to payroll. They have continued the higher level of investment do this date. The increase has allowed the Dodgers to reach the playoffs in 11 straight seasons, and have won 50 playoff games during that time._
