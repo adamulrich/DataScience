@@ -1,0 +1,497 @@
+---
+title: "Client Report - Home Built Date Prediction Using ML Model, Project 4"
+subtitle: "Course DS 250"
+author: "Adam Ulrich"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: mathjax
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+
+```{python}
+#| label: libraries
+#| include: false
+import pandas as pd
+import numpy as np
+import plotly.express as px
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.feature_selection import SelectFromModel
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.metrics import accuracy_score, precision_score
+
+import seaborn as sns
+import math
+
+# function for testing models
+def train_test_model(model,x_train,x_test,y_train,y_test):
+    
+    #fit the model
+    model.fit(x_train,y_train)
+
+    # predict the score
+    y_predict = model.predict(x_test)
+
+    # generate accuracy result
+    accuracy_result = accuracy_score(y_test,y_predict)
+
+    # generate precision result
+    precision_result = (precision_score(y_test,y_predict))
+    return accuracy_result, precision_result, model.feature_importances_, 
+
+# function for encoding a column string --> int
+def encode_column(df: pd.DataFrame, column):
+    
+    # get the list of all unique values
+    unique_values = df[column].unique()
+
+    # iterate the values and update to a numeric value
+    counter = 0
+    for u in unique_values:
+        df[column] = df[column].replace(u,counter)
+        counter += 1
+
+    return df
+```
+
+
+## Elevator pitch
+_In this project, we explore the training of an ML model to predict if a home was built pre-1980 based on the other columns. Datasets can be dirty or missing data, and pre-1980 homes may have asbestos. The goal is to provide a trained model that can predict with an accuracy of at least 90% whether a home was built pre/post 1980 based on the other data._
+
+```{python}
+#| label: project_data
+#| code-summary: read data clean data
+
+df = pd.read_csv("dwellings_denver.csv")
+
+#clean up dirty data
+df['condition'].replace("AVG",'average', inplace=True)
+df['floorlvl'].replace(np.nan,0,inplace=True)
+df['gartype'].replace(np.nan,"None", inplace=True)
+df['pre-1980']=df['yrbuilt'] < 1980
+
+```
+
+## Question 1| Relationship Charts
+
+__Create 2-3 charts that evaluate potential relationships between the home variables and before1980. Explain what you learn from the charts that could help a machine learning algorithm.__
+
+```{python}
+#| label: Q1_chart_1
+#| code-summary: evaluate arcstyle
+
+#create dataframe for comparing neighborhood to year built
+nbhd_yb = df[['arcstyle','pre-1980']]
+nbhd_yb = nbhd_yb.sort_values('arcstyle')
+nbhd_yb['arcstyle'] = nbhd_yb['arcstyle'].astype('string')
+
+# show chart
+chart1 = px.histogram(nbhd_yb,
+                    x='arcstyle', 
+                    color='pre-1980', 
+                    title='Pre/Post 1980 Homes per Architecture Style',
+                    labels={'arcstyle':'Architecture Style'}
+                    )
+chart1.show()
+```
+
+\
+
+_The chart above shows a reasonable correlation between architecture style and year built. Blue bars represent total home count in each style prior to 1980, the stacked red bar above the blue is for after 1980. Clearly most homes prior to 1980 were one-story. However other datapoints are quite split (end unit, middle unit), making this data somewhat useful, but not a great predictor of year built._ 
+
+
+```{python}
+#| label: Q1_chart_2
+#| code-summary: evaluate nbhd
+
+nbhd_yb = df[['nbhd','pre-1980']]
+nbhd_yb = nbhd_yb.sort_values('nbhd')
+nbhd_yb['nbhd'] = nbhd_yb['nbhd'].astype('string')
+
+# show chart
+chart2 = px.histogram(nbhd_yb,
+                    x='nbhd', 
+                    color='pre-1980', 
+                    nbins=800, 
+                    range_y=([0,700]), 
+                    title='Pre/Post 1980 Homes per Neighborhood',
+                    labels={'nbhd':'Neighborhood Code' }
+                    )
+chart2.show()
+
+```
+\
+_The chart above shows a strong correlation between neighborhood and year built. Blue bars represent total home count in each neighborhood prior to 1980, the stacked red bar above the blue is for after 1980. Not surprisingly, our bars tend to be mostly red or mostly blue as neighborhoods tend to be built generally during the same time period. This appears to be a very good predictor._ 
+
+## Task 2| Model Building
+__Build a classification model labeling houses as being built “before 1980” or “during or after 1980”. Your goal is to reach or exceed 90% accuracy. Explain your final model choice (algorithm, tuning parameters, etc) and describe what other models you tried.__
+
+```{mermaid}
+%% Flowchart Load to Score
+flowchart LR
+  A[Load Data] --> B(Clean Data)
+  B --> C(Encode Categorical Data)
+  C --> D(Classify/Select Columns )
+  D --> E(Split Data for train/test)
+  E --> F(Training Data)
+  F --> G(Train Model)
+  E --> H(Testing Data)
+  G --> I(Test Model)
+  H --> I(Test Model)
+  I --> J(Score Model)
+```
+
+
+```{python}
+#| label: Task_2
+#| code-summary: read and format data
+
+#define columns we will use for training and testing, x and y
+columns =['nbhd', 'quality', 'stories', 'gartype', 'numbaths', 'arcstyle']
+columns_to_encode =['quality', 'gartype', 'arcstyle']
+
+x = df[columns]
+y = df['pre-1980'] 
+
+# encode columns
+x_encoded = x
+for c in columns_to_encode:
+    x_encoded = encode_column(x_encoded,c)
+
+#create the model
+model = DecisionTreeClassifier()
+
+model.fit(x_encoded,y)
+
+#identify important features
+selected_model = SelectFromModel(model, prefit=True)
+x_encoded_selected = selected_model.transform(x_encoded)
+
+# create model for the selected set
+model_selected_by_model = DecisionTreeClassifier()
+model_selected_by_model.fit(x_encoded_selected,y)
+
+# create empty lists for returned accuracy, precision and feature pct
+
+# 6 columns
+results_accuracy_6columns = []
+results_precision_6columns = []
+results_feature_pct_6columns = []
+
+# selected by model
+results_accuracy_selected_by_model = []
+results_precision_selected_by_model = []
+results_feature_pct_selected_by_model = []
+
+# run the test n times, store the data against the selected model and encoded model.
+result_count = 25
+row_count = int(math.sqrt(result_count))
+
+model_list = [[model, [
+                results_accuracy_6columns, 
+                results_precision_6columns, 
+                results_feature_pct_6columns], 
+                x_encoded
+            ],
+            [model_selected_by_model, [
+                results_accuracy_selected_by_model,
+                results_precision_selected_by_model,
+                results_feature_pct_selected_by_model],
+                x_encoded_selected
+            ]
+            ]
+
+while len(results_accuracy_6columns) < result_count:
+
+    
+
+    for m, datasets, column_list in model_list:
+
+        #split the data
+        x_train, x_test, y_train, y_test = train_test_split(column_list,y)
+
+        # run the fit and score
+        accuracy_result, precision_result, feature_result = train_test_model(m,
+                    x_train,
+                    x_test,
+                    y_train,
+                    y_test)
+    
+        # append results
+        datasets[0].append(accuracy_result)
+        datasets[1].append(precision_result)
+        datasets[2].append(feature_result)
+
+
+
+# test accuracy
+x_train, x_test, y_train, y_test = train_test_split(x_encoded,y)
+
+
+```
+
+
+_Based on analysis of individual column score results (I ran evaluations against each column's scoring accuracy, and then I retained all columns that were greater than 10%), the columns initial columns selected were:_
+
+`['nbhd', 'quality', 'stories', 'gartype', 'numbaths', 'arcstyle']`
+
+_Data cleaning was applied to `floorlvl` and `gartype` to deal with `NaNs`. Because we have categorical data in the dataset, I then ran the dataframe through an encoder to translate to numeric values, which increased the column count from `6` to `313`._
+
+_However, I was unhappy with OneHotEncoder creating new columns, and renaming existing columns, so I built my own encoder function that identified the unique values in a column, and translated it to numerical data._
+
+_The data set was then run through the `FeatureSelection.SelectFromModel` algorithm, which reduced the columns from `6` down to just `2`.
+
+_After trying the `linear`, `random forest`, and `Gaussian Naive Bayes` `regressors`, I realized that a better solution was using a `classifier` instead. The `Linear Classifier` provided about 70% accurate, `GaussianNB` was 80%, but quite slow. `Random Forest` was also slower. I ended up settling on the `Decision Tree Classifier`._
+
+_The data was then split into training and test segments using the `train\_test\_split` method._
+
+
+## Task 3| Model Justification
+__Justify your classification model by discussing the most important features selected by your model. This discussion should include a chart and a description of the features.__
+
+### Feature Importance Data
+```{python}
+#| label: Task_3a
+#| code-summary: justify model
+
+# create a dataset for features
+features = pd.DataFrame(results_feature_pct_6columns)
+features.loc['mean'] = features.mean()
+features.columns = list(x_encoded.columns)
+
+# display feature data
+features.style 
+```
+### Feature Importance Summary
+
+_To reduce variance between training runs with unique data sets, I ran 25 unique data set splits and generate feature data, we see that neighborhood and architecture style are well above the other feature importance values. Quality and garage type are also reasonbly important._
+
+```{python}
+#| label: Task_3b
+#| code-summary: justify model
+
+# create dataframe for showing pie chart
+features_means = features.mean()
+
+features_pie = pd.DataFrame(zip(list(x_encoded.columns),list(features_means)))
+features_pie.columns = ["feature", 'percentage']
+
+# show pie chart
+feature_chart = px.pie(features_pie,values='percentage', names = 'feature')
+feature_chart.show()
+```
+
+
+
+## Task 4| Model Quality
+__Describe the quality of your classification model using 2-3 different evaluation metrics. You also need to explain how to interpret each of the evaluation metrics you use.__
+
+
+### Accuracy Scoring Data for Model Selection Columns
+```{python}
+#| label: Task_4a
+#| code-summary: statistical summary for selected columns
+
+# create a dataframe from the result for both the 6 column and selected columns
+results_df = pd.DataFrame(results_accuracy_6columns)
+results_df.columns = ['score']
+
+results_df_selected = pd.DataFrame(results_accuracy_selected_by_model)
+results_df_selected.columns = ['score']
+
+# reshape the datapoints for a grid display 
+df_grid = pd.DataFrame(results_df.to_numpy().reshape(row_count,row_count))
+df_grid_selected = pd.DataFrame(results_df_selected.to_numpy().reshape(row_count,row_count))
+
+# create Title
+
+# set color
+cm = sns.light_palette("blue", as_cmap=True)
+
+#show table
+df_grid_selected.style \
+    .hide(axis='columns') \
+    .format(precision=3) \
+    .background_gradient(cmap=cm) \
+    .set_table_styles([{
+        'selector': 'caption',
+        'props': [
+            ('color', 'blue'),
+            ('font-size', '25px')
+        ]
+    }])
+```
+
+### Accuracy Scoring Data for 6 Columns
+```{python}
+#| label: Task_4b
+#| code-summary: statistical summary for 6 columns
+# create Title
+
+# set color
+cm = sns.light_palette("blue", as_cmap=True)
+
+#show table
+df_grid.style \
+    .hide(axis='columns') \
+    .format(precision=3) \
+    .background_gradient(cmap=cm) \
+    .set_table_styles([{
+        'selector': 'caption',
+        'props': [
+            ('color', 'blue'),
+            ('font-size', '25px')
+        ]
+    }])
+
+```
+
+### Accuracy Summary Analysis
+```{python}
+#| label: Task_4c
+#| code-summary: statistical summary 2
+
+# describe the statistical data, and transpose for display
+described_data = results_df.describe().transpose()[['count','mean','std','min','max']]
+described_data = described_data.rename(columns={'std':'standard deviation'})
+
+described_selected_data = results_df_selected.describe().transpose()[['count','mean','std','min','max']]
+described_selected_data = described_selected_data.rename(columns={'std':'standard deviation'})
+
+# create statistical data for use in narrative
+mean = round(float(described_data['mean'].to_string().split()[1]),3)
+standard_deviation = round(float(described_data['standard deviation'].to_string().split()[1]),3)
+min_value = round(float(described_data['min'].to_string().split()[1]),3)
+max_value = round(float(described_data['max'].to_string().split()[1]),3)
+mean_selected = round(float(described_selected_data['mean'].to_string().split()[1]),3)
+
+
+
+# show chart
+described_data.style.format({"count" : "{:,.0f}",
+                 "mean" : "{:.3f}",
+                 "standard deviation" : "{:.3f}",
+                 "min" : "{:.3f}",
+                 "max" : "{:.3f}"
+                 }) \
+            .set_table_styles([{
+                'selector': 'caption',
+                'props': [
+                    ('color', 'blue'),
+                    ('font-size', '25px')
+                ]
+            }])
+
+```
+
+\
+_I ran the train\_test\_split method, the fit method and finally score method against this column set 25 times to get a statistically significant data set. The first data set is from using just two columns as selected by the `SelectFromModel` selecter. The second is from using the 6 columns I had originally used._
+
+_The __accuracy__ results came back on the 2 column data set at ` `{python} mean_selected` ` . Comparing the results to my initial 6 column data set, the data shows that using 6 columns instead of 2 columns increases to ` `{python} mean` `._
+
+_In addition, the standard deviation across our samples was tiny at ` `{python} standard_deviation` `. Min and Max across our data was ` `{python} min_value`  ` and ` `{python} max_value` `, respectively._
+
+_The resulting model will successfully determine pre 1980 homes with a mean accuracy rate of ` `{python} mean` `. The 95% confidence interval would be (` `{python} mean-(2*standard_deviation)` `, ` `{python} mean+(2*standard_deviation)` `). 
+
+Accuracy is calculated as follows:
+
+\begin{align} 
+Accuracy& = {R_c \over T_t }\\
+where\\
+R_c& = Correct Responses\\
+T_t& = Total Test Cases\\
+\end{align} 
+
+
+### Precision Scoring Data for 6 Columns
+```{python}
+#| label: Task_4d
+#| code-summary: precision statistical summary for 6 columns
+
+# create a dataframe from the result for both the 6 column and selected columns
+results_df = pd.DataFrame(results_precision_6columns)
+results_df.columns = ['score']
+
+# reshape the datapoints for a grid display 
+df_grid = pd.DataFrame(results_df.to_numpy().reshape(row_count,row_count))
+
+
+#show table
+df_grid.style \
+    .hide(axis='columns') \
+    .format(precision=3) \
+    .background_gradient(cmap=cm) \
+    .set_table_styles([{
+        'selector': 'caption',
+        'props': [
+            ('color', 'blue'),
+            ('font-size', '25px')
+        ]
+    }])
+
+```
+
+### Precision Summary Analysis
+```{python}
+#| label: Task_4e
+#| code-summary: precision statistical summary 2
+
+# describe the statistical data, and transpose for display
+described_data = results_df.describe().transpose()[['count','mean','std','min','max']]
+described_data = described_data.rename(columns={'std':'standard deviation'})
+
+described_selected_data = results_df_selected.describe().transpose()[['count','mean','std','min','max']]
+described_selected_data = described_selected_data.rename(columns={'std':'standard deviation'})
+
+# create statistical data for use in narrative
+mean = round(float(described_data['mean'].to_string().split()[1]),3)
+standard_deviation = round(float(described_data['standard deviation'].to_string().split()[1]),3)
+min_value = round(float(described_data['min'].to_string().split()[1]),3)
+max_value = round(float(described_data['max'].to_string().split()[1]),3)
+mean_selected = round(float(described_selected_data['mean'].to_string().split()[1]),3)
+
+# show chart
+described_data.style.format({"count" : "{:,.0f}",
+                 "mean" : "{:.3f}",
+                 "standard deviation" : "{:.3f}",
+                 "min" : "{:.3f}",
+                 "max" : "{:.3f}"
+                 }) \
+            .set_table_styles([{
+                'selector': 'caption',
+                'props': [
+                    ('color', 'blue'),
+                    ('font-size', '25px')
+                ]
+            }])
+
+```
+
+_The __precision__ results came back on the 6 column data set at ` `{python} mean` `. Precision is calculated as below. Precision is useful as an indicator to ensure that we are not missing a significant numbers of false_positives._ Our precision data here is excellent, even better than our accuracy.
+
+
+\begin{align} 
+Precision& = {P_t \over {P_t + P_f} }\\
+where\\
+P_t& = True Positives\\
+P_f& = False Positives\\
+\end{align} 

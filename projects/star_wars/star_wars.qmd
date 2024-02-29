@@ -1,0 +1,536 @@
+---
+title: "Client Report - Star Wars and household income"
+subtitle: "Course DS 250"
+author: "Adam Ulrich"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: "#7fabb9"
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+---
+
+```{python}
+#| label: libraries
+#| include: false
+import pandas as pd
+import numpy as np
+import plotly.express as px
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.ensemble import ExtraTreesClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, precision_score
+import math
+import seaborn as sns
+from statistics import mean 
+
+```
+
+## Elevator pitch
+
+*This is an exploration of the Star Wars data set. We clean and prepare the data to be put into an ML model to predict income above \$50k/year, we demonstrate which columns are most useful for that prediction, and we demonstrate that the data is still the same by producing charts.*
+
+```{python}
+#| label: project data
+#| code-summary: Read and format project data
+
+df = pd.read_csv("StarWars.csv", header=[0,1])
+df. columns = df.columns.map('_'.join)
+
+color_map = [[0, "#b2ced8"], [0.000001, "#90b5c1"], [0.999999, "#73a5b4"], [1, "#35869f"]]
+table_style = [{"selector":"tbody tr:nth-child(odd)","props":[("background-color","#dee7eb")]}]
+
+# function for encoding a column string --> int
+def encode_column(df: pd.DataFrame, column, new_column_name, drop_column):
+    
+    # get the list of all unique values
+    unique_values = df[column].unique()
+    mapped_dict = {}
+    # iterate the values and update to a numeric value
+    counter = 0
+    for u in unique_values:
+        mapped_dict[u] = counter
+        counter += 1
+    
+    df[new_column_name] = df[column].map(mapped_dict).fillna(df[column])
+
+    if drop_column:
+      df = df.drop(column,axis=1)
+
+    return df
+
+# train and test helper function
+def train_test_model(model,x_train,x_test,y_train,y_test):
+    
+    #fit the model
+    model.fit(x_train,y_train.values.ravel())
+
+    # predict the score
+    y_predict = model.predict(x_test)
+
+    # generate accuracy result
+    accuracy_result = accuracy_score(y_test,y_predict)
+
+    return accuracy_result, model.feature_importances_, 
+
+# create a grid display 
+def create_grid_from_data(results_set,row_count,name):
+    # create a dataframe from the result for both the 6 column and selected columns
+    results_df = pd.DataFrame(results_set)
+    results_df.columns = ['score']
+
+    # reshape the datapoints for a grid display 
+    df_grid = pd.DataFrame(results_df.to_numpy().reshape(row_count,row_count))
+
+    # set color
+    cm = sns.light_palette("#257d98", as_cmap=True)
+
+    #show table
+
+    return (df_grid.style \
+        .hide(axis='columns') \
+        .format(precision=3) \
+        .background_gradient(cmap=cm) \
+        .set_table_styles([{
+            'selector': 'caption',
+            'props': [
+                ('color', 'blue'),
+                ('font-size', '25px')
+            ]
+        }]))
+
+```
+
+## Task 1 - clean column names
+
+**Shorten the column names and clean them up for easier use with pandas. Provide a table or list that exemplifies how you fixed the names.**
+
+```{python}
+#| label: T1
+#| code-summary: Rename columns
+
+# new column names
+new_column_names = ['respondent', 'seen_star_wars', 'star_wars_fan', 'seen_episode_i',
+  'seen_episode_ii', 'seen_episode_iii', 'seen_episode_iv', 'seen_episode_v', 'seen_episode_vi',
+  'ranked_film_1', 'ranked_film_2', 'ranked_film_3', 'ranked_film_4', 'ranked_film_5', 'ranked_film_6',
+  'han_solo', 'luke_skywalker', 'leia_organa', 'anakin_skywalker', 'obi_win_kenobi', 'emperor_palpatine',
+  'darth_vader', 'lando_calrissian', 'boba_fett', 'c_3po', 'r2_d2', 'jar_jar_binks', 'padme_amidala', 'yoda',
+  'who_shot_first', 'expanded_universe_familiarity', 'expanded_universe_fan', 'star_trek_fan',
+  'gender', 'age', 'household_income', 'education', 'location']
+
+# columns that are string and not going to be numeric    
+string_columns = list(set(new_column_names + ['seen_one_film']) - 
+                      set(['age','education','respondent','household_income']))
+
+# create a map
+renamed_columns_dict = {df.columns[i]: new_column_names[i] for i in range(len(new_column_names))}
+
+# create dataframe for display
+cleaning_df = pd.DataFrame.from_dict(renamed_columns_dict,orient='index')
+cleaning_df.columns=["new_name"]
+
+# rename columns
+df = df.rename(columns=renamed_columns_dict)
+
+# show dataframe for renaming
+display(df.head(5).style.set_table_styles(table_style))
+print()
+
+```
+
+*Task 1 summary: I combined the two row header into a single header, and then shortened the names to useful values.*
+
+## Task 2 - clean and format data
+
+**Clean and format the data so that it can be used in a machine learning model. As you format the data, you should complete each item listed below. In your final report provide example(s) of the reformatted data with a short description of the changes made.**
+
+```{python}
+#| label: T2
+#| code-summary: clean and format data
+
+# Filter the dataset to respondents that have seen at least one film. 
+# create column to filter on
+df['seen_one_film'] = (df['seen_episode_i'].notnull() |
+                      df['seen_episode_ii'].notnull() |
+                      df['seen_episode_iii'].notnull() |
+                      df['seen_episode_iv'].notnull() |
+                      df['seen_episode_v'].notnull() |
+                      df['seen_episode_vi'].notnull() )
+
+# filter data set  
+df_filtered = df[df.seen_one_film].copy()
+
+# create a new column that converts the age ranges to a single number. 
+# drop the age range categorical column.
+df_filtered['age'] = df_filtered['age'].astype(str)
+df_filtered = df_filtered.fillna('None')
+
+df_filtered = encode_column(df_filtered,'age', 'age_encoded',True)
+
+# create a new column that converts the education groupings to a single number. 
+# drop the school categorical column. 
+df_filtered = encode_column(df_filtered,'education', 'education_encoded', True)
+
+#Create a new column that converts the income ranges to a single number. 
+income_map = {
+              '$0 - $24,999': 1, 
+              '$25,000 - $49,999': 2, 
+              '$50,000 - $99,999': 3, 
+              '$100,000 - $149,999': 4, 
+              '$150,000+': 5}
+
+df_filtered['household_income'] = df_filtered['household_income'].map(income_map).fillna(0)
+
+# create your y column based on the new income range column.
+y = pd.DataFrame()
+y['household_income_target'] = (df_filtered['household_income'] > 3)
+
+#Drop the income range categorical column.
+df_filtered.drop('household_income',axis=1,inplace=True)
+
+#Drop the respondant ID
+df_filtered.drop('respondent',axis=1,inplace=True)
+
+# set data types and fill na
+df_filtered[string_columns].astype('string')
+df[string_columns] = df_filtered[string_columns].fillna("None")
+
+# clean all the NAs in the test dataset
+y.fillna(0, inplace= True)
+
+# filter to demographic columns
+df_encoded = df_filtered.copy()
+
+#encoded all columns so that it is easier to compare features.
+for c in string_columns:
+    df_encoded = encode_column(df_encoded,c,f"{c}_encoded",True)
+
+display(df_encoded.head(5).style.set_table_styles(table_style).format(precision=0) )
+print()
+
+# One-hot encode all remaining categorical columns.
+one_hot_encoder = OneHotEncoder(handle_unknown='ignore')
+ohe_array = one_hot_encoder.fit_transform(df_filtered.astype(str))
+onehotlabels = one_hot_encoder.transform(df_filtered.astype(str)).toarray()
+
+# put the array back in to a df for display
+new_columns=[]
+for col, values in zip(df_encoded.columns, one_hot_encoder.categories_):
+    new_columns.extend([col + '_' + str(value) for value in values])
+
+new_df= pd.concat([df_encoded, pd.DataFrame(onehotlabels, columns=new_columns)], axis='columns')
+
+```
+
+*The dataset was filtered to people that had seen at least one star wars film. Then the age, household income were encoded with numerics, as were all other string columns. NA's were replaced, and a household income target column was created in a separate dataset.*
+
+*I did run OneHotEncode to encode the data.*
+
+### One Hot Encoded dataset
+
+```{python}
+#| label: T2_show
+
+# show the OneHotEncoded dataset
+display(new_df.head(5).style.set_table_styles(table_style))
+display()
+print()
+```
+
+*However, I forked the dataset and I ran my own custom encoder on each column. I find one hot encoders explosion of the number of columns - one per unique string value in each column - can create hundreds or thousands of columns. Instead, I convert each unique string value to a unique numeric within the column. For these narratives, I find the narrow data easier to explain and manipulate.*
+
+## Task 3 - Validate data integrity
+
+```{python}
+#| label: T3a
+#| code-summary: display percent of movies seens
+#| 
+film_column_list = ['seen_episode_vi','seen_episode_v','seen_episode_iv','seen_episode_iii','seen_episode_ii','seen_episode_i']
+film_view_counts = pd.DataFrame()
+
+# walk the columns and build the dataset
+for c in film_column_list:
+    film_view_counts = pd.concat([film_view_counts,df_filtered[c].value_counts().drop('None')])
+
+# flatten the index and rename columns
+film_view_counts = film_view_counts.reset_index()
+film_view_counts.columns = ['movie',"count"]
+
+# create percent, drop count
+film_view_counts['percent'] = round(film_view_counts['count']/len(df_filtered),2)*100
+film_view_counts = film_view_counts.drop('count',axis=1)
+
+# create and show chart
+
+bar_chart_1 = px.bar(film_view_counts,x='percent',y='movie', text_auto = True,
+    title=f"of {len(df_filtered)} respondents who have seen any film", color='percent', color_continuous_scale=color_map)
+```
+
+### Which 'Star Wars' Movies Have You Seen?
+
+```{python}
+#| label: T3a_show
+#| code-summary: ""
+bar_chart_1.show()
+```
+
+```{python}
+#| label: T3b
+#| code-summary: display character favorability
+
+character_column_list = ['han_solo', 'luke_skywalker', 'leia_organa', 'anakin_skywalker', 'obi_win_kenobi', 'emperor_palpatine',
+  'darth_vader', 'lando_calrissian', 'boba_fett', 'c_3po', 'r2_d2', 'jar_jar_binks', 'padme_amidala', 'yoda']
+character_df = df_filtered[character_column_list]
+character_counts_df = pd.DataFrame()
+
+# create category lists
+favorable = ['Very favorably', 'Somewhat favorably']
+neutral = ['Neither favorably nor unfavorably (neutral)']
+unfavorable = ['Somewhat unfavorably', 'Very unfavorably']
+unfamiliar = ['Unfamiliar (N/A)']
+
+# walk each character and count results
+for c in character_column_list:
+    current_count = df_filtered[c].value_counts().drop('None')
+    current_count_df = pd.DataFrame(current_count).reset_index()
+
+    favorable_count = sum(current_count_df.query(f"{c} in {favorable}")['count'])
+    neutral_count = sum(current_count_df.query(f"{c} in {neutral}")['count'])
+    unfavorable_count = sum(current_count_df.query(f"{c} in {unfavorable}")['count'])
+    unfamiliar_count = sum(current_count_df.query(f"{c} in {unfamiliar}")['count'])
+    total_count = sum([favorable_count,neutral_count,unfavorable_count,unfamiliar_count])
+    favorable_pct = round(favorable_count/total_count,2)*100
+    neutral_pct = round(neutral_count/total_count,2)*100
+    unfavorable_pct = round(unfavorable_count/total_count,2)*100
+    unfamiliar_pct = round(unfamiliar_count/total_count,2)*100
+    temp_counts_df = pd.DataFrame([[c,favorable_pct,neutral_pct,unfavorable_pct,unfamiliar_pct]])
+
+    # add to our count dataframe
+    character_counts_df = pd.concat([character_counts_df,temp_counts_df])        
+
+# set column names
+character_counts_df.columns = ['character','favorable','neutral','unfavorable','unfamiliar']
+
+# set index to character
+character_counts_df = character_counts_df.set_index('character').reset_index()
+
+# set color
+color_map = sns.light_palette("#257d98", as_cmap=True)
+
+# sort table
+character_counts_df.sort_values(by='favorable',ascending=False, inplace=True)
+```
+
+### 'Star Wars' Characters Favorability Ratings
+
+```{python}
+#| label: T3b_show
+#| code-summary: ""
+
+# show table
+display(character_counts_df.style \
+        .hide(axis='rows') \
+        .bar(subset=['favorable','neutral','unfavorable','unfamiliar'],vmax=100, cmap=color_map) 
+        .format(precision=0) 
+        
+)
+# show dataframe for renaming```
+```
+
+## Task 4 - Build ML Model
+
+**Build a machine learning model that predicts whether a person makes more than \$50k. Describe your model and report the accuracy.**
+
+```{python}
+#| label: T4
+#| code-summary: build ML 
+
+# create lists for results sets analysis
+results_accuracy_full = []
+results_accuracy_age_gender_location_education = []
+results_accuracy_education = []
+results_accuracy_age = []
+results_accuracy_gender = []
+results_accuracy_location = []
+
+results_feature_importance_full = []
+results_feature_importance_age_gender_location_education = []
+results_feature_importance_education = []
+results_feature_importance_age = []
+results_feature_importance_gender = []
+results_feature_importance_location = []
+
+# we will run N iterations, and set row count of display to a sqrt(n) size grid
+result_count = 25
+row_count = int(math.sqrt(result_count))
+
+# constants for values in lists
+dataset_index = 0
+accuracy_index = 1
+feature_index = 2
+name_index = 3
+
+# put the dataset and results lists in a list to iterate over
+datasets = [[df_encoded, 
+              results_accuracy_full, 
+              results_feature_importance_full,
+              'All Columns'],
+            [df_encoded[['age_encoded','gender_encoded','location_encoded','education_encoded']], 
+              results_accuracy_age_gender_location_education,
+              results_feature_importance_age_gender_location_education,
+              'Age, Gender, Location, Education'],
+            [df_encoded[['education_encoded']],
+              results_accuracy_education,
+              results_feature_importance_education,
+              'Education'],
+            [df_encoded[['age_encoded']],
+              results_accuracy_age,
+              results_feature_importance_age,
+              'Age'],
+             [df_encoded[['location_encoded']],
+              results_accuracy_location,
+              results_feature_importance_location,
+              'Location'],
+            [df_encoded[['gender_encoded']],
+              results_accuracy_gender,
+              results_feature_importance_gender,
+              'Gender']
+]   
+
+# do this N times
+while len(results_accuracy_full) < result_count:
+
+    # iterate the datasets
+    for d in datasets:
+
+        # split the data
+        x_train, x_test, y_train, y_test = train_test_split(d[dataset_index],y)
+
+        # #create the model
+        extra_trees_model = ExtraTreesClassifier()
+
+        # generate the data
+        accuracy_result, feature_result = train_test_model(extra_trees_model,
+                            x_train,
+                            x_test,
+                            y_train,
+                            y_test)
+
+        # place the data in the lists
+        d[accuracy_index].append(accuracy_result)
+        d[feature_index].append(feature_result)
+
+# walk the datasets to create feature data for any sets with more than 1 row
+
+histogram_list = []
+grid_list = []
+mean_list = []
+for d in datasets:
+    #create a dataset for the feature data
+    temp_feature_dataframe = pd.DataFrame(d[feature_index])
+
+    #if dataframe has more than one feature, show a histogram
+    if len(temp_feature_dataframe.columns) > 1:
+        #create a dataset for the feature mean data
+        temp_feature_means_dataframe = pd.DataFrame(zip(d[dataset_index].columns,temp_feature_dataframe.mean()))
+        temp_feature_means_dataframe.columns = ['feature','importance']
+
+        #create a histogram
+        temp_histogram = px.histogram(temp_feature_means_dataframe,
+            y='feature',
+            x='importance',
+            title=f'{d[name_index]} Feature Importance',
+                    labels={'sum of importance':'importance'})
+        # show histogram
+        histogram_list.append(temp_histogram)
+
+    # add grid to list
+    grid_list.append(create_grid_from_data(d[accuracy_index],row_count,d[name_index]))
+
+    mean_list.append([d[name_index],round(mean(d[accuracy_index]),3)])
+
+mean_df = pd.DataFrame(mean_list)
+mean_df.columns = ["columns","accuracy"]
+mean_df.set_index('columns').reset_index()
+mean_df.sort_values('accuracy', inplace=True, ascending=False)
+```
+
+*I evaluated 4 different models with 6 different data sets. The Extra Trees Classifier had the best results out of:* - *Extra Trees Classifier* - *Random Forest Classifier* - *Gaussian Naive Bayes Classifier* - *Decision Tree Classifier*
+
+*Then I ran 25 unique split/tests against each of the 6 data sets.* - *All Columns* - *demographic columns (age, gender, location, education)* - *age* - *gender* - *location* - *education*
+
+### Summary means
+
+```{python}
+# display means from the various column sets
+display(mean_df.style.hide(axis='rows') \
+    .format(precision=3).set_table_styles(table_style))
+```
+
+*While there is almost no difference between 5 of the 6 column sets, it appears that using the 4 demographic columns causes overfitting, and drops several percentage points.*
+
+### All Columns Accuracy Data
+
+```{python}
+# display All Columns Accuracy Data
+display(grid_list[0])
+
+```
+
+### Demographic Columns Accuracy Data
+
+```{python}
+# display Demographic Columns Accuracy Data
+display(grid_list[1])
+
+```
+
+### Education Column Accuracy Data
+
+```{python}
+# display Demographic Columns Accuracy Data
+display(grid_list[2])
+
+```
+
+### Age Column Accuracy Data
+
+```{python}
+# display Demographic Columns Accuracy Data
+display(grid_list[3])
+
+```
+
+### Location Column Accuracy Data
+
+```{python}
+# display Demographic Columns Accuracy Data
+display(grid_list[4])
+
+```
+
+### Gender Column Accuracy Data
+
+```{python}
+# display Demographic Columns Accuracy Data
+display(grid_list[5])
+
+```
+
+## Recommendation
+
+*Using `{python} mean_df.iloc[0,0]` within the Star Wars dataset has a slightly higher higher accuracy than other column selections at `{python} mean_df.iloc[0,1]`.*

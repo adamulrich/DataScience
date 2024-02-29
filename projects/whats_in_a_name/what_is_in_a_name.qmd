@@ -1,0 +1,226 @@
+---
+title: "Client Report - What's in a name?"
+subtitle: "Course DS 250"
+author: "Adam Ulrich"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+---
+
+
+```{python}
+#| label: libraries
+#| include: false
+import pandas as pd
+import numpy as np
+import plotly.express as px
+```
+
+
+## Elevator pitch
+This is an exploration of a name frequency dataset from the United States from 1910 to 2015. I explore the usage of the names Adam and Brittany, as well as traditional Christian Names Mary, Martha, Peter and Paul. Finally, we look at a couple movies with names in the title, and try to see their impact on names.
+
+```{python}
+#| label: project_data
+#| code-summary: Read and format project data
+# Include and execute your code here
+df_names = pd.read_csv("names_year.csv")
+
+```
+
+## Question 1 - _How does your name at your birth year compare to its use historically?_
+
+The year 1965 for the name 'Adam' was quite an average year, ranking 49th of 106 years, in the 46th percentile. It occurred 2255 times in 1965, just 11.8% of the peak in 1983 at 19099 occurances. The 70's brought a surge in popularity, with the peak in 1983.
+
+```{python}
+#| label: Q1_part_1
+#| code-summary: show relative frequency of the name Adam by year
+
+# filter dataset to just the name 'Adam' and to just the columns we need
+df_adam = df_names[['name','year','Total']].query(expr='name == "Adam"')
+
+# add a column so that we can color the correct bar
+df_adam["highlight"] = df_adam['year'] == 1965
+
+# create chart by year
+adam_chart_year = px.line(df_adam,
+                    x='year',
+                    y='Total',
+                    color='highlight',
+                    markers=True,
+                    title='The total occurrences of the name Adam by year.'
+                    )
+
+# don't show legend
+adam_chart_year.update_layout(showlegend=False)
+
+```
+
+_Red marker denotes my birth year 1965._
+
+```{python}
+#| label: q1_part_2
+#| code-summary: show relative frequency of the name Adam by rank and percentile
+
+
+# create second chart by rank
+
+# order data by total descending
+df_adam = df_adam.sort_values(by=['Total'], ascending=False)
+
+#add rank and percentile columns
+df_adam.insert(0,'rank',range(1,1+len(df_adam)))
+df_adam.insert(0,'percentile',df_adam['rank']/len(df_adam))
+
+# create chart by rank
+adam_chart_total = px.bar(df_adam,
+                    x='rank',
+                    y='Total',
+                    color='highlight',
+                    custom_data=['year','Total','rank', 'percentile'],
+                    title='The total occurrences of the name Adam by rank.',
+                    
+                    )
+
+# don't show legend
+adam_chart_total.update_layout(showlegend=False)
+
+# add a custom hover template
+adam_chart_total.update_traces(
+    hovertemplate="<br>".join([
+        "year: %{customdata[0]}",
+        "total: %{customdata[1]}",
+        "rank: %{customdata[2]}",
+        "percentile: %{customdata[3]:.2f}",
+    ])
+)
+
+adam_chart_total.show()
+
+```
+
+_Red marker denotes my birth year 1965._
+
+## Question 2 - _If you talked to someone named Brittany on the phone, what is your guess of his or her age? What ages would you not guess?_
+
+Based on the 1988 to 1992 peak period of the various spellings of the name Brittany, I would guess that they were between the ages of 32 and 36. I would not guess younger than 25, or older than 40. 
+
+
+```{python}
+#| label: Q2
+#| code-summary: show Brittany name data
+
+# create Brittany dataframe, filter to needed columns and to variations on the name
+exp = 'name in ["Brittney", "Britany", "Brittany", "Britney", "Britani", "Brittny", "Britanni"]'
+df_brittany = df_names[['name','year','Total']].query(expr=exp)
+
+# create stacked bar chart by year
+brittany_chart_year = px.bar(df_brittany,
+                    x='year',
+                    y='Total',
+                    color='name',
+                    title='The total occurrences of varying spellings of the name Brittany by year.'
+                    )
+
+brittany_chart_year.show()
+
+```
+
+
+## Question 3 - _Mary, Martha, Peter, and Paul are all Christian names. From 1920 - 2000, compare the name usage of each of the four names. What trends do you notice?_
+
+Each name's usage peaked between 1947 and 1956. Since the mid 1970's, use has fallen off dramatically. And in relative comparison, up until the mid 1960's, Mary was at least as twice as popular as the other names; in some cases, 5 times more popular. Since the mid 1960's, Mary and Paul have had about the same popularity.
+
+```{python}
+#| label: Q3
+#| code-summary: show data on Mary, Martha, Peter and Paul
+
+# create query
+exp = 'name in ["Mary", "Martha", "Peter", "Paul"] and year >= 1920 and year <= 2000'
+df_christian_names = df_names[['name','year','Total']].query(expr=exp)
+
+# create stacked bar chart by year
+christian_names_chart_year = px.line(df_christian_names,
+                    x='year',
+                    y='Total',
+                    color='name',
+                    title='The total occurrences of Mary, Martha, Peter and Paul from the years 1920 to 2000.'
+                    )
+
+christian_names_chart_year.show()
+
+```
+
+
+## Question 4 - _Think of a unique name from a famous movie. Plot the usage of that name and see how changes line up with the movie release. Does it look like the movie had an effect on usage?_
+
+I selected 2 datapoints. In 1950, Bette Davis and Anne Baxter starred in All About Eve. Immediately, the name Eve jumped in popularity to double. Over the next decade, and 5 times it's pre 1950 usage.
+
+The second datapoint I selected was 1994 Forrest Gump, another Oscar winning movie. Interestingly, the name Forrest began to increase around the time the novel was published that the movie is based on in 1986. However, the book was not well received, and is unlikely to have been the source of the increase in usage. Forrest did have a massive peak in 1994 coinciding with the movie.
+
+```{python}
+#| label: Q4
+#| code-summary: movie name impact
+exp = 'name == "Eve"'
+df_movie_name = df_names[['name','year','Total']].query(expr=exp)
+
+# add a column so that we can color the correct bar
+df_movie_name["highlight"] = df_movie_name['year'] == 1950 
+
+
+# create chart by rank
+movie_chart_total = px.bar(df_movie_name,
+                    x='year',
+                    y='Total',
+                    color='highlight',
+                    title='The total occurrences of the name "Eve" by year.'
+                   
+                    )
+
+movie_chart_total.update_layout(showlegend=False)
+movie_chart_total.show()
+```
+_Red bar denotes the release year of the movie All About Eve (1950)._
+
+```{python}
+#| label: Q4_part_2
+#| code-summary: selecting the name Eve from the dataset, filtering the records.
+
+# Forrest Gump
+exp = 'name == "Forrest"'
+df_movie_name = df_names[['name','year','Total']].query(expr=exp)
+
+# add a column so that we can color the correct bar
+df_movie_name["highlight"] = ((df_movie_name['year'] == 1994) | (df_movie_name['year'] == 1986))
+# create chart by rank
+movie_chart_total_2 = px.bar(df_movie_name,
+                    x='year',
+                    y='Total',
+                    color='highlight',
+                    title='The total occurrences of the name "Forrest" by year.'
+                    
+                    )
+
+# show chart
+movie_chart_total_2.update_layout(showlegend=False)
+movie_chart_total_2.show()
+
+```
+_Red bars denote the release year of the movie Forrest Gump(1994), and the book Forrest Gump (1986)._
