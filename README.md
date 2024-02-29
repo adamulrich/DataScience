@@ -1,6 +1,6 @@
-# Data Science Projects
+[Adam Ulrich](./docs/index.md)
 
-[__Adam Ulrich__](./docs/index.md)
+## Projects
 
 ## [Name Exploration](./projects/whats_in_a_name/what_is_in_a_name.html)
 
