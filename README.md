@@ -1,6 +1,6 @@
 # Data Science Projects
 
-[__Adam Ulrich__](./projects/Adam_Ulrich_resume.md)
+[__Adam Ulrich__](./docs/index.md)
 
 ## [Name Exploration](./projects/whats_in_a_name/what_is_in_a_name.html)
 
