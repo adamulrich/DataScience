@@ -7,7 +7,7 @@ title: Adam Ulrich
 
 _I’m a detail-oriented servant-leader by choice. As a passionate mentor, coach, and leader, I believe that how we do things is at least as important as what we do. I care deeply about the quality of what we deliver and consider quality the most important feature my team ships._
 
-[adamulrich@hotmail.com](adamulrich@hotmail.com) | [Data Science Portfolio](https://adamulrich.github.io/DataScience/) | [LinkedIn](https://www.linkedin.com/in/adammulrich/) | [Github Projects](https://github.com/adamulrich)
+[adamulrich@hotmail.com](mailto:adamulrich@hotmail.com) | [Data Science Portfolio](https://adamulrich.github.io/DataScience/) | [LinkedIn](https://www.linkedin.com/in/adammulrich/) | [Github Projects](https://github.com/adamulrich)
 
 <!-- https://www.monique.tech/the-art-of-markdown -->
 
