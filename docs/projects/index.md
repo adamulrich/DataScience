@@ -19,4 +19,4 @@ _In this project, we explore the training of an ML model to predict if a home wa
 
 _This is an exploration of the Star Wars data set. We clean and prepare the data to be put into an ML model to predict income above \$50k/year, we demonstrate which columns are most useful for that prediction, and we demonstrate that the data is still the same by producing charts._
 
-### [Adam Ulrich - CV](/)
+### [Adam Ulrich - CV](https://adamulrich.github.io/mdresume/)

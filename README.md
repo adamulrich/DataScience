@@ -1,4 +1,4 @@
-[Adam Ulrich -CV ](./docs/index.md)
+[Adam Ulrich -CV ](https://adamulrich.github.io/mdresume/)
 
 ## Projects
 
