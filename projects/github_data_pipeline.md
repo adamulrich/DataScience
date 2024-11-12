@@ -136,14 +136,14 @@ We used a query based on creation date to generate the initial data. But state o
 
 ### Problem 1: Updating the data
 
-What became a real issue was updating existing data in the 3s bucket. The format we selected was a single file. We need to update datapoints within that file. That left us with one bad solution, and one ok solution.
+What became a real issue was updating existing data in the 3s bucket. The format we selected was a single file. We need to update datapoints within that file. We came up with 4 possible solutions.
 
+- Bad solution. Create a single file per PR. This will lead to eventually hitting a limit of max files in a  Dremio bucket.
 - Bad solution: re-read all the data again from GitHub, overwrite the file in S3. This process could take 2+ hours and will get longer by 5 minutes every week. Yuck
 - OK solution. Read the data from Dremio, query GitHub for updates in the last week, update the data, and overwrite the file in S3. This is a 5 minute job each week.
+- Good solution. Format the bucket as an Iceberg Table, and use the Dremio REST API to update rows in the table. The simplest solution after the initial data was loaded was to pull the last weeks creates and updates, delete those rows (if the exist), 
+and then insert all the rows into the table. This required getting a PAT for access to Dremio, and learning the rest APIs.
 
-We didn’t like either of these solutions. We realized that the single file was our problem. Parquet formats allows you to use as many files as you want in your bucket, and it can query across all that data in all the files in your bucket. So the better solution was to create a single json file for each PR, load all 5000+ files into the bucket. Then when we pull the updated PRs each week, we create or overwrite the approx. 300 tiny files for the PRs that were created/updated. We liked this solution a lot better.
-
-This meant modifying and rerunning the code and generating all those small files, and then pushing them to our S3 bucket.
 
 ### Jenkins Implementation
 
